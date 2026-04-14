@@ -61,8 +61,9 @@ android {
                 arguments += "MODULE_VERSION_NAME=$moduleVersion"
                 arguments += "RIRU_API_VERSION=$moduleMaxRiruApiVersion"
                 // Android 14 linker compatibility flags
-                arguments += "CFLAGS=--hash-style=both"
-                arguments += "CPPFLAGS=--hash-style=both"
+                // Note: --hash-style is a linker flag, not compiler flag
+                arguments += "CFLAGS=-Wall"
+                arguments += "CPPFLAGS=-Wall"
                 arguments += "LDFLAGS=--hash-style=both"
             }
         }

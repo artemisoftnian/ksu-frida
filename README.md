@@ -73,3 +73,5 @@ You can also build and install the module to your device directly with `./gradle
 - Inspired by https://github.com/Perfare/Zygisk-Il2CppDumper
 - https://github.com/hexhacking/xDL
 
+## JUST THINKING!
+

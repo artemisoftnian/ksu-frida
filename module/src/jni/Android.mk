@@ -12,7 +12,8 @@ LOCAL_STATIC_LIBRARIES := cxx dobby
 LOCAL_LDLIBS := -llog
 
 # Android 14 linker compatibility (--hash-style=both for gnu+hash support)
-LOCAL_LDFLAGS += --hash-style=both
+# Use -Wl, prefix to pass directly to linker
+LOCAL_LDFLAGS += -Wl,--hash-style=both
 
 ifeq ($(API), riru)
 LOCAL_SRC_FILES += main_riru.cpp

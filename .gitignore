@@ -1,51 +1,73 @@
 ```
-# Build artifacts
-build/
-*.jar
-*.war
-*.class
-*.o
-*.obj
-*.so
-*.dll
-*.exe
-
 # Dependencies
 .gradle/
 node_modules/
+
+# Build artifacts
+build/
+target/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
 venv/
 .venv/
-__pycache__/
-*.egg-info/
-
-# Logs and temporary files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Environment variables
+.ENV
 .env
+.env.*
 .env.local
-*.env.*
 
-# Editors
-.vscode/
-.idea/
-*.iml
-*.ipr
-*.iws
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.out
+
+# Logs
+*.log
 
 # OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Coverage reports
 coverage/
 htmlcov/
 .coverage
 
-# Distribution / packaging
-dist/
-target/
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
 ```

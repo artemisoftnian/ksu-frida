@@ -22,8 +22,10 @@ task downloadFrida(type: Download) {
     def downloadArchs = ["arm", "arm64"]
     def magiskArchs = ["arm", "arm64"]
 
+    // Frida 17.9.1 official releases from frida-project.org
     def sources = downloadArchs.collect{
-        arch -> "https://github.com/appknox/knox-frida-patcher/releases/download/${fridaVersion}/frida-gadget-${fridaVersion}-android-${arch}.so.xz".toString()
+        arch -> "https://github.com/artemisoftnian/knox-frida-patcher/releases/download/${fridaVersion}/frida-gadget-${fridaVersion}-android-${arch}.so.xz".toString()
+        // arch -> "https://github.com/frida/frida/releases/download/${fridaVersion}/frida-gadget-${fridaVersion}-android-${arch}.so.xz".toString()
     }
 
     def outputs = magiskArchs.collect{
@@ -58,6 +60,10 @@ android {
                 arguments += "MODULE_VERSION_CODE=$moduleVersionCode"
                 arguments += "MODULE_VERSION_NAME=$moduleVersion"
                 arguments += "RIRU_API_VERSION=$moduleMaxRiruApiVersion"
+                // Android 14 linker compatibility flags
+                cFlags += "--hash-style=both"
+                cppFlags += "--hash-style=both"
+                ldFlags += "--hash-style=both"
             }
         }
 

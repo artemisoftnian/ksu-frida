@@ -1,17 +1,17 @@
 #include "inject.h"
 
-#include <cstddef>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#include <chrono>
 #include <cinttypes>
+#include <cstddef>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
+#include <chrono>
 
 #include "config.h"
 #include "log.h"
@@ -79,7 +79,7 @@ static bool copy_file(const char *src, const char *dst) {
     char buf[65536];
     ssize_t n;
     while ((n = read(in_fd, buf, sizeof(buf))) > 0) {
-        if (write(out_fd, buf, (size_t)n) != n) {
+        if (write(out_fd, buf, static_cast<size_t>(n)) != n) {
             LOGE("stage: write failed for %s", dst);
             close(in_fd);
             close(out_fd);
@@ -93,7 +93,6 @@ static bool copy_file(const char *src, const char *dst) {
 }
 
 static std::string stage_gadget(const std::string &app_name, const std::string &src_lib_path) {
-
     std::string stage_dir = "/data/data/" + app_name + "/.cache";
     mkdir(stage_dir.c_str(), 0700);
 
@@ -139,10 +138,17 @@ void inject_lib(std::string const &lib_path, std::string const &logContext) {
     void *handle = xdl_open(lib_path.c_str(), XDL_TRY_FORCE_LOAD);
     if (handle) {
         LOGI("%sInjected %s with handle %p", logContext.c_str(), lib_path.c_str(), handle);
+
+        // Runtime check: verify pointer validity for Android 14
+        if (handle < reinterpret_cast<void*>(0x1000)) {
+            LOGE("SIGSEGV RISK: Invalid handle pointer %p - possible null dereference", handle);
+        }
         return;
     }
 
     auto xdl_err = dlerror();
+    LOGD("xdl_open failed: %s", xdl_err ? xdl_err : "unknown");
+
     // Fall back to standard dlopen.
     handle = dlopen(lib_path.c_str(), RTLD_NOW);
     if (handle) {
@@ -151,8 +157,11 @@ void inject_lib(std::string const &lib_path, std::string const &logContext) {
         return;
     }
 
-    LOGE("%sFailed to inject %s (xdl_open): %s", logContext.c_str(), lib_path.c_str(), xdl_err);
-    LOGE("%sFailed to inject %s (dlopen): %s",   logContext.c_str(), lib_path.c_str(), dlerror());
+    auto dlopen_err = dlerror();
+    LOGE("%sFailed to inject %s (xdl): %s", logContext.c_str(), lib_path.c_str(), xdl_err ? xdl_err : "unknown");
+    const char* dlopen_msg = dlopen_err ? dlopen_err : "unknown";
+    LOGE("%sFailed to inject %s (dlopen): %s", logContext.c_str(), lib_path.c_str(), dlopen_msg);
+    LOGE("GADGET LOAD FAILURE: Check SELinux execmem and gadget signature");
 }
 
 static void inject_libs(target_config const &cfg, pid_t pid) {
@@ -164,6 +173,16 @@ static void inject_libs(target_config const &cfg, pid_t pid) {
 
     if (cfg.kernel_assisted_evasion) {
         LOGI("KSIE enabled for PID: %d", pid);
+    }
+
+    // Enable debug logging if configured
+    if (cfg.debug_logging) {
+        LOGI("Debug logging ENABLED for %s", cfg.app_name.c_str());
+    }
+
+    // Remapper support for Yidun evasion - hide libsecond.so
+    if (cfg.remapper.enabled && !cfg.remapper.hide_library_name.empty()) {
+        LOGI("Remapper enabled: will hide %s", cfg.remapper.hide_library_name.c_str());
     }
 
     delay_start_up(cfg.start_up_delay_ms);

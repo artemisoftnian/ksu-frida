@@ -2,6 +2,7 @@
 
 #include <link.h>
 #include <sys/mman.h>
+#include <cstdio>
 
 #include <cinttypes>
 #include <cstdint>

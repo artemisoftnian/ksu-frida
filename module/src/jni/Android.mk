@@ -11,6 +11,9 @@ LOCAL_SRC_FILES := inject.cpp config.cpp riru_config.cpp child_gating.cpp remapp
 LOCAL_STATIC_LIBRARIES := cxx dobby
 LOCAL_LDLIBS := -llog
 
+# Android 14 linker compatibility (--hash-style=both for gnu+hash support)
+LOCAL_LDFLAGS += --hash-style=both
+
 ifeq ($(API), riru)
 LOCAL_SRC_FILES += main_riru.cpp
 LOCAL_STATIC_LIBRARIES += riru

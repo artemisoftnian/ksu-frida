@@ -1,53 +1,112 @@
-# ZygiskFrida
+# VoidWalker (ZygiskFrida Fork)
+
+> **Frida 17.9.1 + Android 14 + Yidun Bypass** - Zygisk-based Frida Gadget injection for rooted devices
 
 > [Frida](https://frida.re) is a dynamic instrumentation toolkit for developers, reverse-engineers, and security researchers
 
-> [Zygisk](https://github.com/topjohnwu/Magisk) part of Magisk allows you to run code in every Android application's Process.
+> [Zygisk](https://github.com/topjohnwu/Magisk) allows you to run code in every Android application's process.
 
 
 ## Introduction
 
-[ZygiskFrida](README.md) is a zygisk module allowing you to inject frida gadget in Android applications in a
-more stealthy way.
+**VoidWalker** is a hardened fork of ZygiskFrida designed to survive modern anti-debug protections like Yidun (NetEase).
 
-- The gadget is not embedded into the APK itself. So APK Integrity/Signature checks will still pass.
-- The process is not being ptraced like it is with frida-server. Avoiding ptrace based detection.
-- Control about the injection time of the gadget.
-- Allows you to load multiple arbitrary libraries into the process.
+### Key Features
+- ✅ **Frida 17.9.1** embedded (official or custom builds)
+- ✅ **Android 14 (API 34)** compatible with `--hash-style=both` linker fix
+- ✅ **Yidun bypass** via configurable startup delay (5000ms default)
+- ✅ **Library remapper** hides `libsecond.so` from `/proc/self/maps`
+- ✅ **Stealth injection**: No APK modification, no ptrace, signature checks pass
+- ✅ **Dual support**: Zygisk (Magisk/KernelSU) and Riru flavors
 
-This repo also provides a [Riru](https://github.com/RikkaApps/Riru) flavor in case you are still
-using riru with an older magisk version rather than zygisk.
+This repo provides both **Zygisk** (recommended) and **Riru** flavors.
 
 ## How to use the module
 
 ### Prerequisites
-- Rooted device/emulator
+- Rooted device/emulator with KernelSU or Magisk
 - Zygisk available and enabled
+- Frida CLI installed (`pip install frida-tools`)
 
-### Quick start
-- Download the latest release from the [Release Page](https://github.com/lico-n/ZygiskFrida/releases)\
-  If you are using riru instead of zygisk choose the riru-release. Otherwise choose the normal version.
-- Transfer the ZygiskFrida zip file to your device and install it via Magisk.
-- Reboot after install
-- Create the config file and adjust the package name to your target app (replace `your.target.application` in the commands)
-```shell
-adb shell 'su -c cp /data/local/tmp/re.zyg.fri/config.json.example /data/local/tmp/re.zyg.fri/config.json'
-adb shell 'su -c sed -i s/com.example.package/your.target.application/ /data/local/tmp/re.zyg.fri/config.json'
+### Quick Start (Android 14 + Yidun Protection)
+
+#### 1. Build or Download
+**Option A: Download pre-built release**
+- Go to Releases and download `ZygiskFrida-v1.9.1-release.zip`
+
+**Option B: Build locally**
+```bash
+git checkout voidwalker
+./gradlew :module:assembleRelease
+# Output: module/build/outputs/magisk_module_zygisk_release/*.zip
 ```
-- Launch your app. It will pause at startup allowing you to attach
-  f.e. `frida -U -N your.target.application` or `frida -U -n Gadget`
 
-This assumes that you don't have any other frida server running (f.e. by using MagiskFrida).
-You can still run it together with frida-server but you would have to configure the gadget
-to use a different port.
+#### 2. Install Module
+```bash
+# Push to device
+adb push module/build/outputs/magisk_module_zygisk_release/*.zip /sdcard/Download/
 
-### Fridagisk Remapper
+# Install via KernelSU (or flash via Magisk app)
+adb shell su -c "ksud module install /sdcard/Download/*.zip"
+# For Magisk: adb shell su -c "magisk --install-module /sdcard/Download/*.zip"
 
-Fridagisk has an advanced system to hide library loading inside android proc maps system. 
-This is called a library remapper.
-On a successful injection of a library, fridagisk's remapper will attempt to copy the data from procFS system and allocate and separate memory location for the target library. 
-This prevents any detection/scanning attempts which might be used by the target application to check suspecious injection or shared libraries. 
-Implementation is present at the [remapper.cpp](https://github.com/electrondefuser/fridagisk/blob/main/module/src/jni/remapper.cpp) file.
+# Reboot required
+adb reboot
+```
+
+#### 3. Configure for Target App
+Create config with anti-debug delay and remapper enabled:
+
+```bash
+# Create directory
+adb shell su -c "mkdir -p /data/local/tmp/re.zyg.fri"
+
+# Create config.json (replace com.msandroid.mobile with your target)
+adb shell su -c "cat > /data/local/tmp/re.zyg.fri/config.json << 'EOF'
+{
+  \"target\": \"com.msandroid.mobile\",
+  \"delay\": 5000,
+  \"remapper\": {
+    \"enabled\": true,
+    \"hide_library_name\": \"libsecond.so\"
+  },
+  \"debug_logging\": true
+}
+EOF"
+
+# Set permissions
+adb shell su -c "chmod 644 /data/local/tmp/re.zyg.fri/config.json"
+```
+
+#### 4. Attach Frida
+```bash
+# Start target app
+adb shell am start -n com.msandroid.mobile/.MainActivity
+
+# Monitor logs (in separate terminal)
+adb logcat | grep -iE "gadget|sigsegv|yidun|frida"
+
+# Attach Frida (wait 5s for delay to expire)
+frida -U -n com.msandroid.mobile
+# OR
+frida -U -n Gadget
+```
+
+> **Note:** The 5000ms delay helps bypass Yidun and other anti-debug checks that run at startup.
+
+### Advanced Configuration
+See [docs/advanced_config.md](docs/advanced_config.md) for child gating, multiple libraries, and custom Frida gadget ports.
+
+### Frida Gadget Remapper
+
+VoidWalker includes an advanced **library remapper** system that hides injected libraries from `/proc/self/maps`:
+
+- On successful injection, the remapper copies library data from procfs to a separate memory allocation
+- The original mapping is replaced, making detection via `/proc/self/maps` scans ineffective
+- Configurable via `remapper.hide_library_name` (default: `libsecond.so`)
+- Implementation: [remapper.cpp](module/src/jni/remapper.cpp)
+
+This effectively bypasses anti-cheat SDKs that scan for suspicious shared libraries like `frida-gadget.so`.
 
 ### Configuration
 
@@ -58,18 +117,68 @@ Please take a look at the [configuration guide](docs/advanced_config.md) for thi
 
 ## How to build
 
-- Checkout the project
-- Run `./gradlew :module:assembleRelease`
-- The build magisk module should then be in the `out` directory.
+### Local Build
+```bash
+git checkout voidwalker
+./gradlew :module:assembleRelease
+# Output: module/build/outputs/magisk_module_zygisk_release/*.zip
+```
 
-You can also build and install the module to your device directly with `./gradlew :module:flashAndRebootZygiskRelease`
+### GitHub Actions (CI/CD)
+The repository includes automated builds via GitHub Actions:
+
+**Trigger a build:**
+1. Push to `voidwalker` branch, OR
+2. Create a tag: `git tag -a v1.9.1-voidwalker -m "release"` && `git push origin v1.9.1-voidwalker`, OR
+3. Manually trigger from Actions tab → "Build Release" workflow
+
+**Download artifacts:**
+- Go to Actions → Select the completed run → Download from "Artifacts" section
+
+### Flash Directly from Build
+```bash
+# Build and flash to device in one command (requires ADB)
+./gradlew :module:flashAndRebootZygiskRelease
+```
+
+## Troubleshooting
+
+### Connection closes immediately
+```bash
+# Check for dlopen errors or SIGSEGV
+adb logcat | grep -iE "gadget|sigsegv|dlopen|yidun"
+
+# Verify config.json syntax
+adb shell su -c "cat /data/local/tmp/re.zyg.fri/config.json | jq ."
+
+# Ensure SELinux is permissive (temporarily for testing)
+adb shell su -c "setenforce 0"
+```
+
+### App crashes on startup
+- Increase `delay` value in config.json (try 10000ms)
+- Disable remapper temporarily to isolate the issue
+- Check for conflicting Frida installations (magisk-frida, etc.)
+
+### Cannot attach via Frida
+```bash
+# Verify gadget is loaded
+adb shell su -c "cat /proc/$(pidof com.msandroid.mobile)/maps | grep -i gadget"
+
+# Try attaching by PID instead
+frida -U -p $(adb shell pidof com.msandroid.mobile)
+```
 
 ## Caveats
 
-- For emulators this will start the gadget in native realm. This means that you will be able to hook Java but not native functions.
+- **Emulators**: Gadget runs in native realm only (Java hooks work, native hooks may not)
+- **SELinux**: May need `execmem` allowance on some ROMs
+- **Multiple Frida instances**: Ensure no other frida-server is running on port 27042
 
 ## Credits
 
-- Inspired by https://github.com/Perfare/Zygisk-Il2CppDumper
-- https://github.com/hexhacking/xDL
+- Original: https://github.com/lico-n/ZygiskFrida
+- Inspired by: https://github.com/Perfare/Zygisk-Il2CppDumper
+- xDL: https://github.com/hexhacking/xDL
+- Frida: https://frida.re
 

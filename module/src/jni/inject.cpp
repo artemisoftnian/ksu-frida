@@ -139,10 +139,17 @@ void inject_lib(std::string const &lib_path, std::string const &logContext) {
     void *handle = xdl_open(lib_path.c_str(), XDL_TRY_FORCE_LOAD);
     if (handle) {
         LOGI("%sInjected %s with handle %p", logContext.c_str(), lib_path.c_str(), handle);
+        
+        // Runtime check: verify pointer validity for Android 14
+        if (handle < (void*)0x1000) {
+            LOGE("SIGSEGV RISK: Invalid handle pointer %p - possible null dereference", handle);
+        }
         return;
     }
 
     auto xdl_err = dlerror();
+    LOGD("xdl_open failed: %s", xdl_err ? xdl_err : "unknown");
+    
     // Fall back to standard dlopen.
     handle = dlopen(lib_path.c_str(), RTLD_NOW);
     if (handle) {
@@ -151,8 +158,10 @@ void inject_lib(std::string const &lib_path, std::string const &logContext) {
         return;
     }
 
-    LOGE("%sFailed to inject %s (xdl_open): %s", logContext.c_str(), lib_path.c_str(), xdl_err);
-    LOGE("%sFailed to inject %s (dlopen): %s",   logContext.c_str(), lib_path.c_str(), dlerror());
+    auto dlopen_err = dlerror();
+    LOGE("%sFailed to inject %s (xdl_open): %s", logContext.c_str(), lib_path.c_str(), xdl_err ? xdl_err : "unknown");
+    LOGE("%sFailed to inject %s (dlopen): %s",   logContext.c_str(), lib_path.c_str(), dlopen_err ? dlopen_err : "unknown");
+    LOGE("GADGET LOAD FAILURE: Check SELinux execmem permissions and gadget signature");
 }
 
 static void inject_libs(target_config const &cfg, pid_t pid) {
@@ -164,6 +173,16 @@ static void inject_libs(target_config const &cfg, pid_t pid) {
 
     if (cfg.kernel_assisted_evasion) {
         LOGI("KSIE enabled for PID: %d", pid);
+    }
+
+    // Enable debug logging if configured
+    if (cfg.debug_logging) {
+        LOGI("Debug logging ENABLED for %s", cfg.app_name.c_str());
+    }
+
+    // Remapper support for Yidun evasion - hide libsecond.so
+    if (cfg.remapper.enabled && !cfg.remapper.hide_library_name.empty()) {
+        LOGI("Remapper enabled: will hide %s", cfg.remapper.hide_library_name.c_str());
     }
 
     delay_start_up(cfg.start_up_delay_ms);

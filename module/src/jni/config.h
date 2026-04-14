@@ -12,13 +12,20 @@ struct child_gating_config {
     std::vector<std::string> injected_libraries;
 };
 
+struct remapper_config {
+    bool enabled;
+    std::string hide_library_name;
+};
+
 struct target_config{
     bool enabled;
     std::string app_name;
     uint64_t start_up_delay_ms;
     bool kernel_assisted_evasion;
+    bool debug_logging;
     std::vector<std::string> injected_libraries;
     child_gating_config child_gating;
+    remapper_config remapper;
 };
 
 std::optional<target_config> load_config(std::string const& module_dir, std::string const& app_name);

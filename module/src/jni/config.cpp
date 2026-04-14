@@ -80,6 +80,8 @@ static std::optional<target_config> deserialize_target_config(const rapidjson::V
     }
 
     target_config result = {};
+    result.debug_logging = false;  // default
+    result.remapper = {.enabled = false, .hide_library_name = ""};  // default
 
     auto &app_name = doc["app_name"];
     if (!app_name.IsString()) {
@@ -122,6 +124,27 @@ static std::optional<target_config> deserialize_target_config(const rapidjson::V
             return std::nullopt;
         }
         result.child_gating = child_gating.value();
+    }
+
+    // Parse remapper config for Yidun evasion
+    if (doc.HasMember("remapper")) {
+        auto &remapper_doc = doc["remapper"];
+        if (remapper_doc.IsObject()) {
+            auto &remap_enabled = remapper_doc["enabled"];
+            if (remap_enabled.IsBool()) {
+                result.remapper.enabled = remap_enabled.GetBool();
+            }
+            auto &hide_name = remapper_doc["hide_library_name"];
+            if (hide_name.IsString()) {
+                result.remapper.hide_library_name = hide_name.GetString();
+            }
+        }
+    }
+
+    // Parse debug_logging flag
+    auto &debug_log = doc["debug_logging"];
+    if (debug_log.IsBool()) {
+        result.debug_logging = debug_log.GetBool();
     }
 
     return result;

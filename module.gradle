@@ -12,6 +12,6 @@ ext {
     moduleMinRiruVersionName = "24.0.0"
     moduleMaxRiruApiVersion = 26
 
-    // Frida
-    fridaVersion = "17.4.0"
+    // Frida - Updated to 17.9.1 for Android 14 compatibility
+    fridaVersion = "17.9.1"
 }
